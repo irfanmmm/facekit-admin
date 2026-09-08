@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -10,19 +10,22 @@ import {
   LogIn,
   UserPlus,
   X,
-  Terminal
+  Terminal,
+  Users,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
-const navItems = [
+const superAdminNavItems = [
   {
     title: "Dashboard",
     href: "/",
     icon: LayoutDashboard,
   },
   {
-    title: "Componys",
-    href: "/componys",
+    title: "Companies",
+    href: "/companies",
     icon: Table,
   },
   {
@@ -47,14 +50,32 @@ const authItems = [
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isSuperAdmin, componyCode, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/auth/sign-in", { replace: true });
+  };
+
+  const navItems = isSuperAdmin
+    ? superAdminNavItems
+    : [
+        {
+          title: "Employees",
+          href: `/employees/${componyCode ?? ""}`,
+          icon: Users,
+        },
+      ];
 
   return (
     <aside className="w-60 bg-white lg:bg-transparent flex flex-col relative z-10 h-full border-r border-stone-200 lg:border-0">
       {/* Brand Header */}
       <div className="p-6 pb-0 relative z-10 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-stone-900">
-          Material Shadcn
-        </h1>
+        <div>
+          <h1 className="text-lg font-semibold text-stone-900">Facekit Admin</h1>
+          <p className="text-xs text-stone-400">{isSuperAdmin ? "Super Admin" : componyCode}</p>
+        </div>
         {/* Close button for mobile */}
         {onClose && (
           <Button
@@ -136,6 +157,17 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         </div> */}
       </nav>
 
+      {/* Logout */}
+      <div className="p-4 border-t border-stone-200">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center text-sm font-normal rounded-lg cursor-pointer px-3 py-2 text-stone-700 hover:bg-stone-100 transition-colors duration-200 border border-transparent"
+        >
+          <LogOut className="mr-3 w-4 h-4" />
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

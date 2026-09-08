@@ -9,10 +9,13 @@ import { Link } from "wouter";
 import { post } from "@/hooks/http";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { decodeJwt } from "@/lib/jwt";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SignIn() {
   const navigation = useNavigate();
   const { login } = useAuth();
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -24,14 +27,18 @@ export default function SignIn() {
     // console.log("Sign in submitted:", formData);
 
     await post("/admin/login", formData).then((res) => {
-      console.log(res.data);
       if (res.data.token) {
         login(res.data.token);
-        navigation("/");
+        const claims = decodeJwt(res.data.token);
+        if (claims?.role === "client_admin" && claims?.compony_code) {
+          navigation(`/employees/${claims.compony_code}`);
+        } else {
+          navigation("/");
+        }
       }
-
+    }).catch(() => {
+      toast({ title: "Invalid username or password", variant: "destructive" });
     });
-    // Handle sign in logic here
   };
 
   return (

@@ -15,10 +15,33 @@ export default function Logs() {
         if (isPaused) return;
 
         const token = localStorage.getItem('token');
-        const eventSource = new EventSource(`http://localhost:5001/admin/live-logs?token=${token}`);
+        const eventSource = new EventSource(`http://facekit.officekithr.net/facekit/admin/live-logs?token=${token}`);
 
         eventSource.onmessage = function(event) {
-            setLogs((prev) => [...prev, event.data]);
+            let data = event.data;
+            try {
+                // Convert UTC timestamp in log string to IST
+                const timestampRegex = /(\d{4}-\d{2}-\d{2})\s(\d{2}:\d{2}:\d{2})/;
+                data = data.replace(timestampRegex, (match: string, date: string, time: string) => {
+                    const utcDate = new Date(`${date}T${time}Z`);
+                    if (!isNaN(utcDate.getTime())) {
+                        return utcDate.toLocaleString('en-IN', {
+                            timeZone: 'Asia/Kolkata',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                        }).replace(/(\d+)\/(\d+)\/(\d+),/, '$3-$2-$1');
+                    }
+                    return match;
+                });
+            } catch (e) {
+                console.error("Error parsing log timestamp:", e);
+            }
+            setLogs((prev) => [...prev, data]);
         };
 
         eventSource.onerror = function(error) {

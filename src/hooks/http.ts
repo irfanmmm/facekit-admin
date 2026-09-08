@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-    baseURL: "http://localhost:5001",
+    baseURL: "http://facekit.officekithr.net/facekit/",
     headers: {
         "Content-Type": "application/json",
     },
@@ -31,9 +31,13 @@ const get = (url: string) => {
     return axiosInstance.get(url);
 }
 
+const getFile = (url: string, config?: any) => {
+    return axiosInstance.get(url, { responseType: 'blob', ...config });
+}
+
 const post = (url: string, data: any) => {
     return axiosInstance.post(url, data);
 }
 
 
-export { get, post }
+export { get, post, getFile }

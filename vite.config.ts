@@ -4,6 +4,7 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
+  base: "/admin/",
   plugins: [
     react(),
     runtimeErrorOverlay(),
@@ -24,11 +25,12 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, ""),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, "build"),
     emptyOutDir: true,
   },
   server: {
     port: 3000,
+    host: "localhost",
     fs: {
       strict: true,
       deny: ["**/.*"],

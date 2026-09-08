@@ -21,6 +21,7 @@ import SignUp from "@/pages/auth/sign-up";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import Employees from "./pages/employees";
 import Logs from "./pages/logs";
 
@@ -88,29 +89,31 @@ function Router() {
   return (
     <Routes>
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={
-          <Layout>
-            <Dashboard />
-          </Layout>
-        } />
-        {/* <Route path="/profile" element={
-          <Layout title="Profile" description="Manage your account settings and personal information">
-            <Profile />
-          </Layout>
-        } /> */}
-        <Route path="/componys" element={
-          <Layout title="Componys" description="All Facekit registerd componys">
-            <Tables />
-          </Layout>
-        } />
+        <Route element={<SuperAdminRoute />}>
+          <Route path="/" element={
+            <Layout>
+              <Dashboard />
+            </Layout>
+          } />
+          {/* <Route path="/profile" element={
+            <Layout title="Profile" description="Manage your account settings and personal information">
+              <Profile />
+            </Layout>
+          } /> */}
+          <Route path="/companies" element={
+            <Layout title="Companies" description="All Facekit registerd companies">
+              <Tables />
+            </Layout>
+          } />
+          <Route path="/logs" element={
+            <Layout title="Live Logs" description="Real-time backend application logs">
+              <Logs />
+            </Layout>
+          } />
+        </Route>
         <Route path="/employees/:id" element={
-          <Layout title="Employees" description={`All Facekit employees for company`}>
+          <Layout title="Employees" description={`All Facekit employees for companies`}>
             <Employees />
-          </Layout>
-        } />
-        <Route path="/logs" element={
-          <Layout title="Live Logs" description="Real-time backend application logs">
-            <Logs />
           </Layout>
         } />
         {/* <Route path="/notifications" element={

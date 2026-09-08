@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import { decodeJwt } from "@/lib/jwt";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   token: string | null;
+  role: string | null;
+  componyCode: string | null;
+  isSuperAdmin: boolean;
   login: (token: string) => void;
   logout: () => void;
   loading: boolean;
@@ -22,6 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
+  const claims = useMemo(() => (token ? decodeJwt(token) : null), [token]);
+  const role = claims?.role ?? null;
+  const componyCode = claims?.compony_code ?? null;
+
   const login = (newToken: string) => {
     localStorage.setItem("token", newToken);
     setToken(newToken);
@@ -34,7 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated: !!token, token, login, logout, loading }}
+      value={{
+        isAuthenticated: !!token,
+        token,
+        role,
+        componyCode,
+        isSuperAdmin: role === "super_admin",
+        login,
+        logout,
+        loading,
+      }}
     >
       {!loading && children}
     </AuthContext.Provider>
