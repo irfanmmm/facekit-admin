@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { post } from "@/hooks/http";
 import { useToast } from "@/hooks/use-toast";
+import { employeePhotoUrl } from "@/lib/employeePhoto";
 
 interface BadFaceRecordsProps {
     open: boolean;
@@ -70,7 +71,7 @@ export function BadFaceRecords({ open, onOpenChange, componyId, onSelectEmployee
                                 >
                                     <Avatar className="w-12 h-12 shrink-0">
                                         <AvatarImage
-                                            src={emp.image ? `http://facekit.officekithr.net/facekit/uploads/${emp.image}` : undefined}
+                                            src={employeePhotoUrl(emp.image)}
                                             className="object-cover"
                                         />
                                         <AvatarFallback>
@@ -81,7 +82,7 @@ export function BadFaceRecords({ open, onOpenChange, componyId, onSelectEmployee
                                         <div className="text-sm font-medium text-stone-900 truncate">{emp.fullname}</div>
                                         <div className="text-xs text-stone-500">{emp.employee_code}</div>
                                     </div>
-                                    <Badge className="bg-red-100 text-red-700 border-none text-[10px] uppercase tracking-wide shrink-0">
+                                    <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] uppercase tracking-wide shrink-0">
                                         Falsely matches {emp.match_count} people
                                     </Badge>
                                 </button>

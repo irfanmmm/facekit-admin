@@ -9,6 +9,8 @@ import { Check, ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { post } from "@/hooks/http";
 import { useToast } from "@/hooks/use-toast";
+import { employeePhotoUrl } from "@/lib/employeePhoto";
+import { useAuth } from "@/context/AuthContext";
 
 interface EmployeeDetailsDialogProps {
     open: boolean;
@@ -16,7 +18,6 @@ interface EmployeeDetailsDialogProps {
     employee: any;
     employees: any[];
     componyId: string | undefined;
-    isSuperAdmin: boolean;
     onSaved: (updated: any) => void;
     onDeleted: () => void;
 }
@@ -27,11 +28,15 @@ export function EmployeeDetailsDialog({
     employee,
     employees,
     componyId,
-    isSuperAdmin,
     onSaved,
     onDeleted,
 }: EmployeeDetailsDialogProps) {
     const { toast } = useToast();
+    const { isSuperAdmin, hasPermission } = useAuth();
+
+    const canEdit = isSuperAdmin || hasPermission("switch_branch") || hasPermission("switch_agency");
+    const canFacekitDelete = isSuperAdmin || hasPermission("delete_employee_facekit");
+    const canForceDelete = isSuperAdmin || hasPermission("force_delete_employee_officekit");
 
     const [isEditingMode, setIsEditingMode] = useState(false);
     const [isImageDeleted, setIsImageDeleted] = useState(false);
@@ -233,7 +238,7 @@ export function EmployeeDetailsDialog({
                             {(employee.image && !isImageDeleted) ? (
                                 <div className="relative w-full h-80">
                                     <img
-                                        src={`http://facekit.officekithr.net/facekit/uploads/${employee.image}`}
+                                        src={employeePhotoUrl(employee.image)}
                                         alt={employee.fullname}
                                         className="w-full h-full object-cover rounded-md"
                                     />
@@ -357,10 +362,10 @@ export function EmployeeDetailsDialog({
                             </>
                         ) : (
                             <>
-                                {isSuperAdmin && (
+                                {canEdit && (
                                     <Button onClick={() => setIsEditingMode(true)}>Edit</Button>
                                 )}
-                                {isSuperAdmin && (
+                                {canForceDelete ? (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="destructive" className="flex items-center gap-2">
@@ -370,15 +375,29 @@ export function EmployeeDetailsDialog({
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="center">
-                                            <DropdownMenuItem onClick={() => setDeleteMode("facekit")}>
-                                                Delete from Facekit only
-                                            </DropdownMenuItem>
+                                            {canFacekitDelete && (
+                                                <DropdownMenuItem onClick={() => setDeleteMode("facekit")}>
+                                                    Delete from Facekit only
+                                                </DropdownMenuItem>
+                                            )}
                                             <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeleteMode("force")}>
                                                 Force delete (Facekit + Officekit)
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                )}
+                                ) : canFacekitDelete ? (
+                                    // This admin login can delete from Facekit's own database only -
+                                    // the Officekit-touching force-delete permission isn't granted to
+                                    // them, so it's not offered at all (not even as a dropdown item).
+                                    <Button
+                                        variant="destructive"
+                                        className="flex items-center gap-2"
+                                        onClick={() => setDeleteMode("facekit")}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Delete
+                                    </Button>
+                                ) : null}
                                 <Button variant="secondary" onClick={() => onOpenChange(false)}>Close</Button>
                             </>
                         )}

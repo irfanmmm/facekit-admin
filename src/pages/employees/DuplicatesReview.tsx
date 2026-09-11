@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { cn } from "@/lib/utils";
 import { post } from "@/hooks/http";
 import { useToast } from "@/hooks/use-toast";
+import { employeePhotoUrl } from "@/lib/employeePhoto";
 
 interface DuplicatesReviewProps {
     open: boolean;
@@ -110,7 +111,7 @@ export function DuplicatesReview({ open, onOpenChange, componyId, onMerged }: Du
                                                     >
                                                         <Avatar className="w-14 h-14">
                                                             <AvatarImage
-                                                                src={emp.image ? `http://facekit.officekithr.net/facekit/uploads/${emp.image}` : undefined}
+                                                                src={employeePhotoUrl(emp.image)}
                                                                 className="object-cover"
                                                             />
                                                             <AvatarFallback>

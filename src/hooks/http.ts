@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-    baseURL: "http://facekit.officekithr.net/facekit/",
+    // Defaults to the production backend, matching every build up to now.
+    // A UAT build overrides this at build time with VITE_API_BASE_URL so it
+    // talks to the UAT gunicorn instance (facekit@5002) instead.
+    baseURL: import.meta.env.VITE_API_BASE_URL || "http://facekit.officekithr.net/facekit/",
     headers: {
         "Content-Type": "application/json",
     },

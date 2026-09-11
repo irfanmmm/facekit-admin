@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { MoreVertical, Plus, Settings as SettingsIcon, KeyRound } from "lucide-react";
+import { MoreVertical, Plus, Settings as SettingsIcon, KeyRound, ShieldCheck } from "lucide-react";
 import { authorsData, projectsData } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { get, post } from "@/hooks/http";
+import { PERMISSION_LABELS } from "@/lib/permissionLabels";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { AIEvolutionDialog } from "@/components/AIEvolutionDialog";
@@ -38,6 +39,8 @@ export default function Tables() {
   const [credentialsCompany, setCredentialsCompany] = useState<any>(null);
   const [credentialsForm, setCredentialsForm] = useState({ admin_username: "", admin_password: "" });
   const [savingCredentials, setSavingCredentials] = useState(false);
+  const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
+  const [permissions, setPermissions] = useState<{ permission_name: string; value: boolean }[]>([]);
 
 
 
@@ -121,6 +124,38 @@ export default function Tables() {
       toast({ title: error?.response?.data?.message || "Failed to save credentials", variant: "destructive" });
     } finally {
       setSavingCredentials(false);
+    }
+  };
+
+  const fetchPermissions = async (company: any) => {
+    setSelectedCompany(company);
+    setIsPermissionsOpen(true);
+    const { data } = await get(`/admin/get-permissions?compony_code=${encodeURIComponent(company.compony_code)}`);
+    if (data.permissions) {
+      setPermissions(data.permissions);
+    }
+  };
+
+  const handleTogglePermission = async (permissionName: string, newValue: boolean) => {
+    // Optimistic update
+    setPermissions(prev => prev.map(p => p.permission_name === permissionName ? { ...p, value: newValue } : p));
+
+    try {
+      const { data } = await post(`/admin/update-permissions`, {
+        compony_code: selectedCompany.compony_code,
+        permission_name: permissionName,
+        value: newValue
+      });
+
+      if (data.message === 'success') {
+        toast({ title: `${PERMISSION_LABELS[permissionName]?.label || permissionName} ${newValue ? 'enabled' : 'disabled'} successfully` });
+      } else {
+        setPermissions(prev => prev.map(p => p.permission_name === permissionName ? { ...p, value: !newValue } : p));
+        toast({ title: "Failed to update permission", variant: "destructive" });
+      }
+    } catch (error) {
+      setPermissions(prev => prev.map(p => p.permission_name === permissionName ? { ...p, value: !newValue } : p));
+      toast({ title: "Error updating permission", variant: "destructive" });
     }
   };
 
@@ -291,6 +326,15 @@ export default function Tables() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => fetchPermissions(author)}
+                            className="h-8 w-8 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+                            title="Admin Portal Permissions"
+                          >
+                            <ShieldCheck className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => openCredentials(author)}
                             className="h-8 w-8 text-amber-500 hover:text-amber-700 hover:bg-amber-50 transition-all"
                             title="Portal Login Credentials"
@@ -359,6 +403,53 @@ export default function Tables() {
           </div>
           <div className="p-4 bg-stone-50 border-t border-stone-100 flex justify-end">
             <Button variant="secondary" onClick={() => setIsSettingsOpen(false)} className="text-xs font-bold uppercase tracking-widest">Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPermissionsOpen} onOpenChange={setIsPermissionsOpen}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-stone-100">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-stone-900">Admin Portal Permissions</DialogTitle>
+                <p className="text-xs text-stone-500 font-medium">{selectedCompany?.compony_name} - controls what this company's own admin-portal login can do</p>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            {permissions.length > 0 ? (
+              permissions.map((permission) => {
+                const meta = PERMISSION_LABELS[permission.permission_name];
+                return (
+                    <div key={permission.permission_name} className="flex items-center justify-between p-4 rounded-xl border border-stone-100 bg-stone-50/30 hover:bg-stone-50 transition-colors">
+                        <div className="space-y-1 pr-4">
+                            <Label className="text-sm font-bold text-stone-800">{meta?.label || permission.permission_name.replace(/_/g, ' ')}</Label>
+                            <p className="text-[11px] text-stone-500 leading-tight">{meta?.description || "Controls access to this admin action."}</p>
+                        </div>
+                        <Switch
+                            checked={permission.value}
+                            onCheckedChange={(checked) => handleTogglePermission(permission.permission_name, checked)}
+                            className="data-[state=checked]:bg-emerald-600 shrink-0"
+                        />
+                    </div>
+                );
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-stone-400">
+                <div className="relative w-10 h-10 mb-4">
+                  <div className="absolute inset-0 rounded-full border-2 border-stone-100"></div>
+                  <div className="absolute inset-0 rounded-full border-2 border-stone-900 border-t-transparent animate-spin"></div>
+                </div>
+                <p className="text-xs font-bold uppercase tracking-widest">Loading Permissions...</p>
+              </div>
+            )}
+          </div>
+          <div className="p-4 bg-stone-50 border-t border-stone-100 flex justify-end">
+            <Button variant="secondary" onClick={() => setIsPermissionsOpen(false)} className="text-xs font-bold uppercase tracking-widest">Close</Button>
           </div>
         </DialogContent>
       </Dialog>

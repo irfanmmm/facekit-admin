@@ -2,19 +2,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { MoreVertical, Search, Calendar, ClipboardList, Download, Copy, ImageOff } from "lucide-react";
+import { MoreVertical, Search, Calendar, ClipboardList, Download, Copy, ImageOff, ScanFace, Merge, Wrench } from "lucide-react";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useEffect, useState } from "react";
 import { getFile } from "@/hooks/http";
 import { useToast } from "@/hooks/use-toast";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useEmployees } from "@/hooks/useEmployees";
+import { employeePhotoUrl } from "@/lib/employeePhoto";
 import { EmployeeDetailsDialog } from "./EmployeeDetailsDialog";
 import { AttendanceDialog } from "./AttendanceDialog";
 import { DuplicatesReview } from "./DuplicatesReview";
+import { ManualMerge } from "./ManualMerge";
 import { BadFaceRecords } from "./BadFaceRecords";
+import { FaceSearchDialog } from "./FaceSearchDialog";
 
 export default function Employees() {
     const { toast } = useToast();
@@ -53,7 +64,9 @@ export default function Employees() {
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
     const [isDuplicatesOpen, setIsDuplicatesOpen] = useState(false);
+    const [isManualMergeOpen, setIsManualMergeOpen] = useState(false);
     const [isBadFacesOpen, setIsBadFacesOpen] = useState(false);
+    const [isFaceSearchOpen, setIsFaceSearchOpen] = useState(false);
 
     // Default dates: today only
     const today = new Date().toISOString().split('T')[0];
@@ -136,221 +149,220 @@ export default function Employees() {
 
     return (
         <div className="h-full overflow-y-auto p-6 custom-scrollbar">
-            <div className="space-y-6">
-                <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-stone-200 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-xl font-bold text-stone-900">Employee List</h2>
-                            <Badge variant="secondary" className="text-xs">{id}</Badge>
-                        </div>
-                        <div className="h-6 w-[1px] bg-stone-200 mx-2" />
-                        <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-100 group relative">
-                            <Calendar className="h-4 w-4 text-stone-500" />
-                            <input
-                                type="date"
-                                className="bg-transparent text-sm font-medium focus:outline-none text-stone-700 cursor-pointer"
-                                value={filterDate}
-                                onChange={(e) => {
-                                    setFilterDate(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                            />
-                            {filterDate && (
-                                <button
-                                    onClick={() => {
-                                        setFilterDate("");
-                                        setCurrentPage(1);
-                                    }}
-                                    className="ml-1 text-stone-400 hover:text-stone-900 transition-colors"
-                                    title="Clear filter"
-                                >
-                                    <MoreVertical className="h-3 w-3 rotate-45" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Button
-                                className="h-10 bg-stone-900 hover:bg-stone-800 transition-colors flex items-center gap-2 px-3 relative overflow-hidden"
-                                onClick={() => handleDownloadDetails()}
-                                disabled={downloadingDetails}
-                                title="Download Employee Details (PDF)"
-                            >
-                                <Download className="h-4 w-4" />
-                                {downloadingDetails ? `Downloading... ${downloadProgress}%` : "Details"}
-                                {downloadingDetails && (
-                                    <Progress value={downloadProgress} className="absolute bottom-0 left-0 right-0 h-1 rounded-none opacity-50 [&>div]:bg-white" />
-                                )}
-                            </Button>
-                            <Button
-                                className="h-10 bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-2 px-3 relative overflow-hidden"
-                                onClick={() => handleDownloadAttendance()}
-                                disabled={downloadingAttendance}
-                                title="Download Employee Attendance (CSV)"
-                            >
-                                <Download className="h-4 w-4" />
-                                {downloadingAttendance ? `Downloading... ${downloadProgress}%` : "Attendance"}
-                                {downloadingAttendance && (
-                                    <Progress value={downloadProgress} className="absolute bottom-0 left-0 right-0 h-1 rounded-none opacity-50 [&>div]:bg-white" />
-                                )}
-                            </Button>
-                            {isSuperAdmin && (
-                                <Button
-                                    className="h-10 bg-amber-600 hover:bg-amber-700 text-white transition-colors flex items-center gap-2 px-3"
-                                    onClick={() => setIsDuplicatesOpen(true)}
-                                    title="Scan for duplicate faces"
-                                >
-                                    <Copy className="h-4 w-4" />
-                                    Check Duplicates
-                                </Button>
-                            )}
-                            {isSuperAdmin && (
-                                <Button
-                                    variant="outline"
-                                    className="h-10 border-red-300 text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2 px-3"
-                                    onClick={() => setIsBadFacesOpen(true)}
-                                    title="Find employees with a broken/bad face encoding"
-                                >
-                                    <ImageOff className="h-4 w-4" />
-                                    Bad Faces
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            <div className="space-y-4">
+                {/* Toolbar */}
+                <Card className="border-stone-200">
+                    <CardContent className="p-4 space-y-4">
+                        {/* Row 1: scope + actions */}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <Badge variant="secondary" className="text-xs font-medium">{id}</Badge>
+                                <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-100">
+                                    <Calendar className="h-4 w-4 text-stone-500" />
+                                    <input
+                                        type="date"
+                                        className="bg-transparent text-sm font-medium focus:outline-none text-stone-700 cursor-pointer"
+                                        value={filterDate}
+                                        onChange={(e) => {
+                                            setFilterDate(e.target.value);
+                                            setCurrentPage(1);
+                                        }}
+                                    />
+                                    {filterDate && (
+                                        <button
+                                            onClick={() => {
+                                                setFilterDate("");
+                                                setCurrentPage(1);
+                                            }}
+                                            className="text-stone-400 hover:text-stone-900 transition-colors"
+                                            title="Clear filter"
+                                        >
+                                            <MoreVertical className="h-3 w-3 rotate-45" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
 
-                {/* Authors Table */}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="solid"
+                                    className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2"
+                                    onClick={() => setIsFaceSearchOpen(true)}
+                                    title="Search for an employee by uploading a photo"
+                                >
+                                    <ScanFace className="h-4 w-4" />
+                                    Search by Photo
+                                </Button>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="flex items-center gap-2">
+                                            <Download className="h-4 w-4" />
+                                            Export
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuItem
+                                            disabled={downloadingDetails}
+                                            onClick={() => handleDownloadDetails()}
+                                        >
+                                            {downloadingDetails ? `Downloading... ${downloadProgress}%` : "Employee Details (PDF)"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            disabled={downloadingAttendance}
+                                            onClick={() => handleDownloadAttendance()}
+                                        >
+                                            {downloadingAttendance ? `Downloading... ${downloadProgress}%` : "Attendance (CSV)"}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                {isSuperAdmin && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="solid" className="bg-amber-600 hover:bg-amber-700 flex items-center gap-2">
+                                                <Wrench className="h-4 w-4" />
+                                                Tools
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuLabel>Data cleanup</DropdownMenuLabel>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => setIsDuplicatesOpen(true)}>
+                                                <Copy className="h-4 w-4 mr-2" />
+                                                Duplicates
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setIsBadFacesOpen(true)}>
+                                                <ImageOff className="h-4 w-4 mr-2" />
+                                                Bad Faces
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setIsManualMergeOpen(true)}>
+                                                <Merge className="h-4 w-4 mr-2" />
+                                                Merge Employees
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Row 2: filters */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-stone-100">
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search name..."
+                                    className="pl-8 h-9 text-sm"
+                                    value={authorQuery}
+                                    onChange={(e) => setAuthorQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search code..."
+                                    className="pl-8 h-9 text-sm"
+                                    value={emploeeCodeQury}
+                                    onChange={(e) => { setEmployeeCode(e.target.value); setCurrentPage(1); }}
+                                />
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search branch..."
+                                    className="pl-8 h-9 text-sm"
+                                    value={branchQuery}
+                                    onChange={(e) => setBranchQuery(e.target.value)}
+                                />
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search agency..."
+                                    className="pl-8 h-9 text-sm"
+                                    value={agencyQuery}
+                                    onChange={(e) => setAgencyQuery(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Employee table */}
                 <Card className="border-stone-200">
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-stone-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-normal text-stone-500 uppercase tracking-wider">EMPLOYEE NAME</th>
-                                        <th className="px-6 py-3 text-left text-xs font-normal text-stone-500 uppercase tracking-wider">EMPLOYEE CODE</th>
-                                        <th className="px-6 py-3 text-left text-xs font-normal text-stone-500 uppercase tracking-wider">BRANCH DETAILS</th>
-                                        <th className="px-6 py-3 text-left text-xs font-normal text-stone-500 uppercase tracking-wider">AGENCY DETAILS</th>
-                                        <th className="px-6 py-3 text-left text-xs font-normal text-stone-500 uppercase tracking-wider">ATTENDANCE</th>
-                                    </tr>
-                                    <tr className="border-t border-stone-200 bg-stone-50/50">
-                                        <th className="px-6 py-2 font-normal">
-                                            <div className="relative">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Search employee name..."
-                                                    className="pl-8 h-8 text-xs bg-white border-stone-200 focus:bg-white focus-visible:ring-stone-500 placeholder-stone-400 text-stone-700"
-                                                    value={authorQuery}
-                                                    onChange={(e) => setAuthorQuery(e.target.value)}
-                                                />
-                                            </div>
-                                        </th>
-                                        <th className="px-6 py-2 font-normal">
-                                            <div className="relative">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Search employee code..."
-                                                    className="pl-8 h-8 text-xs bg-white border-stone-200 focus:bg-white focus-visible:ring-stone-500 placeholder-stone-400 text-stone-700"
-                                                    value={emploeeCodeQury}
-                                                    onChange={(e) => { setEmployeeCode(e.target.value); setCurrentPage(1); }}
-                                                />
-                                            </div>
-                                        </th>
-                                        <th className="px-6 py-2 font-normal">
-                                            <div className="relative">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Search branch..."
-                                                    className="pl-8 h-8 text-xs bg-white border-stone-200 focus:bg-white focus-visible:ring-stone-500 placeholder-stone-400 text-stone-700"
-                                                    value={branchQuery}
-                                                    onChange={(e) => setBranchQuery(e.target.value)}
-                                                />
-                                            </div>
-                                        </th>
-                                        <th className="px-6 py-2 font-normal">
-                                            <div className="relative">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Search agency..."
-                                                    className="pl-8 h-8 text-xs bg-white border-stone-200 focus:bg-white focus-visible:ring-stone-500 placeholder-stone-400 text-stone-700"
-                                                    value={agencyQuery}
-                                                    onChange={(e) => setAgencyQuery(e.target.value)}
-                                                />
-                                            </div>
-                                        </th>
-                                        <th className="px-6 py-2 font-normal">
-                                            <Input
-                                                type="text"
-                                                disabled
-                                                placeholder="N/A"
-                                                className="h-8 text-xs bg-stone-100/50 border-stone-200 placeholder-stone-400 text-stone-400 cursor-not-allowed"
-                                            />
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-stone-200">
-                                    {paginatedEmployees.map((author: any, index) => (
-                                        <tr
-                                            key={index}
-                                            className="hover:bg-stone-50 cursor-pointer"
-                                            onClick={() => {
-                                                setSelectedEmployee(author);
-                                                setIsOpen(true);
-                                            }}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="flex items-center">
-                                                    <Avatar className="w-10 h-10">
-                                                        <AvatarImage
-                                                            src={author.image ? `http://facekit.officekithr.net/facekit/uploads/${author.image}` : undefined}
-                                                            alt={author.fullname}
-                                                            className="object-cover"
-                                                        />
-                                                        <AvatarFallback>
-                                                            {author.fullname?.split(' ').map((n: any) => n[0]).join('')?.substring(0, 2)}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="ml-4">
-                                                        <div className="text-sm font-normal text-stone-900">{author?.fullname}</div>
-                                                    </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="text-stone-500">Employee</TableHead>
+                                    <TableHead className="text-stone-500">Code</TableHead>
+                                    <TableHead className="text-stone-500">Branch</TableHead>
+                                    <TableHead className="text-stone-500">Agency</TableHead>
+                                    <TableHead className="text-stone-500 text-right">Attendance</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedEmployees.map((author: any, index) => (
+                                    <TableRow
+                                        key={index}
+                                        className="cursor-pointer"
+                                        onClick={() => {
+                                            setSelectedEmployee(author);
+                                            setIsOpen(true);
+                                        }}
+                                    >
+                                        <TableCell>
+                                            <div className="flex items-center min-w-0">
+                                                <Avatar className="w-9 h-9 shrink-0">
+                                                    <AvatarImage
+                                                        src={employeePhotoUrl(author.image)}
+                                                        alt={author.fullname}
+                                                        className="object-cover"
+                                                    />
+                                                    <AvatarFallback>
+                                                        {author.fullname?.split(' ').map((n: any) => n[0]).join('')?.substring(0, 2)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="ml-3 min-w-0">
+                                                    <div className="text-sm text-stone-900 truncate" title={author?.fullname}>{author?.fullname}</div>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-stone-900">{author.employee_code}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-stone-900">{author.branch ? `Branch ${author.branch}` : <span className="text-stone-400 italic">Not Assigned</span>}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-stone-900">{author.agency ? `Agency ${author.agency}` : <span className="text-stone-400 italic">Not Assigned</span>}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="flex items-center gap-2 hover:bg-stone-100"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedEmployee(author);
-                                                        const attendanceDate = filterDate || today;
-                                                        setStartDate(attendanceDate);
-                                                        setEndDate(attendanceDate);
-                                                        setIsAttendanceOpen(true);
-                                                    }}
-                                                >
-                                                    <ClipboardList className="h-4 w-4" />
-                                                    View Logs
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="text-sm text-stone-900 truncate" title={author.employee_code}>{author.employee_code}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="text-sm text-stone-900 truncate">{author.branch ? `Branch ${author.branch}` : <span className="text-stone-400 italic">Not Assigned</span>}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="text-sm text-stone-900 truncate">{author.agency ? `Agency ${author.agency}` : <span className="text-stone-400 italic">Not Assigned</span>}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="gap-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedEmployee(author);
+                                                    const attendanceDate = filterDate || today;
+                                                    setStartDate(attendanceDate);
+                                                    setEndDate(attendanceDate);
+                                                    setIsAttendanceOpen(true);
+                                                }}
+                                            >
+                                                <ClipboardList className="h-4 w-4" />
+                                                View Logs
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                         {paginatedEmployees.length > 0 && (
                             <div className="flex items-center justify-between px-4 py-3 border-t border-stone-200 sm:px-6 bg-white rounded-b-lg">
                                 <div className="hidden sm:block text-sm text-stone-500">
@@ -391,7 +403,6 @@ export default function Employees() {
                 employee={selectedEmployee}
                 employees={employees}
                 componyId={id}
-                isSuperAdmin={isSuperAdmin}
                 onSaved={(updated) => {
                     setSelectedEmployee(updated);
                     refetch();
@@ -409,11 +420,29 @@ export default function Employees() {
                 onMerged={refetch}
             />
 
+            <ManualMerge
+                open={isManualMergeOpen}
+                onOpenChange={setIsManualMergeOpen}
+                componyId={id}
+                onMerged={refetch}
+            />
+
             <BadFaceRecords
                 open={isBadFacesOpen}
                 onOpenChange={setIsBadFacesOpen}
                 componyId={id}
                 onSelectEmployee={(emp) => {
+                    setSelectedEmployee(emp);
+                    setIsOpen(true);
+                }}
+            />
+
+            <FaceSearchDialog
+                open={isFaceSearchOpen}
+                onOpenChange={setIsFaceSearchOpen}
+                componyId={id}
+                onSelectEmployee={(emp) => {
+                    setIsFaceSearchOpen(false);
                     setSelectedEmployee(emp);
                     setIsOpen(true);
                 }}

@@ -6,10 +6,17 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Calendar, Clock, ArrowDownLeft, ArrowUpRight, ClipboardList, Download, ChevronDown, User } from "lucide-react";
+import { Calendar, Clock, ArrowDownLeft, ArrowUpRight, ClipboardList, Download, ChevronDown, User, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { get } from "@/hooks/http";
+import { get, post } from "@/hooks/http";
 import { useToast } from "@/hooks/use-toast";
+import { employeePhotoUrl } from "@/lib/employeePhoto";
+import { useAuth } from "@/context/AuthContext";
+
+type DeleteTarget =
+    | { type: "employee" }
+    | { type: "day"; date: string }
+    | { type: "punch"; date: string; direction: string; time: string };
 
 interface AttendanceDialogProps {
     open: boolean;
@@ -39,10 +46,17 @@ export function AttendanceDialog({
     onDownloadDetails,
 }: AttendanceDialogProps) {
     const { toast } = useToast();
+    const { isSuperAdmin, hasPermission } = useAuth();
+
+    const canDeleteEmployee = isSuperAdmin || hasPermission("delete_attendance_employee");
+    const canDeleteDay = isSuperAdmin || hasPermission("delete_attendance_day");
+    const canDeletePunch = isSuperAdmin || hasPermission("delete_attendance_punch");
 
     const [attendanceData, setAttendanceData] = useState<any>(null);
     const [loadingAttendance, setLoadingAttendance] = useState(false);
     const [selectedLog, setSelectedLog] = useState<{ recordIdx: number; logIdx: number } | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchAttendance = (employeeCode: string, start?: string, end?: string) => {
         setLoadingAttendance(true);
@@ -99,8 +113,51 @@ export function AttendanceDialog({
         setSelectedLog(isLogSelected(rIdx, lIdx) ? null : { recordIdx: rIdx, logIdx: lIdx });
     };
 
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget || !employee) return;
+        setIsDeleting(true);
+        try {
+            let res;
+            if (deleteTarget.type === "employee") {
+                res = await post("/admin/delete-attendance-employee", {
+                    compony_code: componyId,
+                    employee_code: employee.employee_code,
+                });
+            } else if (deleteTarget.type === "day") {
+                res = await post("/admin/delete-attendance-day", {
+                    compony_code: componyId,
+                    employee_code: employee.employee_code,
+                    date: deleteTarget.date,
+                });
+            } else {
+                res = await post("/admin/delete-attendance-punch", {
+                    compony_code: componyId,
+                    employee_code: employee.employee_code,
+                    date: deleteTarget.date,
+                    direction: deleteTarget.direction,
+                    time: deleteTarget.time,
+                });
+            }
+
+            if (res.data && res.data.message === "success") {
+                toast({ title: "Attendance record deleted" });
+                setDeleteTarget(null);
+                setSelectedLog(null);
+                fetchAttendance(employee.employee_code);
+            } else {
+                toast({ title: "Failed to delete", description: res.data?.message, variant: "destructive" });
+            }
+        } catch (error: any) {
+            console.error("Error deleting attendance:", error);
+            toast({ title: "Failed to delete", description: error?.response?.data?.message, variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
-        <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setSelectedLog(null); }}>
+        <>
+        <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setSelectedLog(null); setDeleteTarget(null); } }}>
             <DialogContent className="sm:max-w-2xl h-[85vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-0">
                     <div className="flex items-center gap-4 mb-4">
@@ -143,6 +200,17 @@ export function AttendanceDialog({
                                 <Progress value={downloadProgress} className="absolute bottom-0 left-0 right-0 h-1 rounded-none opacity-50" />
                             )}
                         </Button>
+                        {canDeleteEmployee && (
+                            <Button
+                                variant="destructive"
+                                className="mt-auto h-9 px-4 flex items-center gap-2"
+                                onClick={() => setDeleteTarget({ type: "employee" })}
+                                title="Permanently delete every attendance record for this employee"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Delete All Attendance
+                            </Button>
+                        )}
                     </div>
                 </DialogHeader>
 
@@ -201,9 +269,21 @@ export function AttendanceDialog({
                                                         {record.present === 'P' ? 'Present' : 'Absent'}
                                                     </Badge>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-stone-600 text-xs font-bold">
-                                                    <Clock className="h-3.5 w-3.5" />
-                                                    {formatDuration(record.total_working_time)}
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2 text-stone-600 text-xs font-bold">
+                                                        <Clock className="h-3.5 w-3.5" />
+                                                        {formatDuration(record.total_working_time)}
+                                                    </div>
+                                                    {canDeleteDay && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDeleteTarget({ type: "day", date: record.date })}
+                                                            className="h-6 w-6 rounded-md flex items-center justify-center text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                            title="Delete this day's attendance record"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -219,9 +299,7 @@ export function AttendanceDialog({
                                                         <div className="relative pl-6 space-y-2 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-stone-100">
                                                             {record.logs.map((log: any, lIdx: number) => {
                                                                 const expanded = isLogSelected(rIdx, lIdx);
-                                                                const faceUrl = log.image
-                                                                    ? `http://facekit.officekithr.net/facekit/uploads/${log.image}`
-                                                                    : null;
+                                                                const faceUrl = employeePhotoUrl(log.image) ?? null;
 
                                                                 return (
                                                                     <div key={lIdx} className="relative">
@@ -291,6 +369,20 @@ export function AttendanceDialog({
                                                                                     <div className="text-[10px] text-stone-400 font-medium hidden sm:block">
                                                                                         {formatLogTime(log.time, { second: '2-digit' })}
                                                                                     </div>
+                                                                                    {canDeletePunch && (
+                                                                                        <span
+                                                                                            role="button"
+                                                                                            tabIndex={0}
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                setDeleteTarget({ type: "punch", date: record.date, direction: log.direction, time: log.time });
+                                                                                            }}
+                                                                                            className="h-6 w-6 rounded-md flex items-center justify-center text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                                                            title="Delete this punch"
+                                                                                        >
+                                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                                        </span>
+                                                                                    )}
                                                                                     <ChevronDown className={cn(
                                                                                         "h-4 w-4 text-stone-400 transition-transform duration-200",
                                                                                         expanded && "rotate-180"
@@ -370,5 +462,45 @@ export function AttendanceDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        {/* Delete confirmation - shared across employee/day/punch granularities */}
+        <Dialog open={deleteTarget !== null} onOpenChange={(o) => { if (!isDeleting && !o) setDeleteTarget(null); }}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>
+                        {deleteTarget?.type === "employee" && "Delete All Attendance"}
+                        {deleteTarget?.type === "day" && "Delete Day's Attendance"}
+                        {deleteTarget?.type === "punch" && "Delete Punch"}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="text-sm text-stone-600 space-y-2 py-2">
+                    {deleteTarget?.type === "employee" && (
+                        <p>
+                            This will <span className="font-semibold text-red-600">permanently delete every attendance record</span> for {employee?.fullname} ({employee?.employee_code}), across all months, from Facekit and Officekit.
+                        </p>
+                    )}
+                    {deleteTarget?.type === "day" && (
+                        <p>
+                            This will <span className="font-semibold text-red-600">permanently delete</span> the whole attendance record for {employee?.fullname} on {deleteTarget.date}, from Facekit and Officekit.
+                        </p>
+                    )}
+                    {deleteTarget?.type === "punch" && (
+                        <p>
+                            This will <span className="font-semibold text-red-600">permanently delete</span> the {deleteTarget.direction === "in" ? "check-in" : "check-out"} punch at {deleteTarget.time} for {employee?.fullname}, and recalculate that day's total working time.
+                        </p>
+                    )}
+                    <p>This action cannot be undone.</p>
+                </div>
+                <DialogFooter className="sm:justify-center">
+                    <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+                        Cancel
+                    </Button>
+                    <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                        {isDeleting ? "Deleting..." : "Yes, Delete"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

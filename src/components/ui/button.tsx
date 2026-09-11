@@ -10,6 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "text-sm py-2 px-4 shadow-sm hover:shadow-md bg-stone-800 hover:bg-stone-700 relative bg-gradient-to-b from-stone-700 to-stone-800 border-stone-900 text-stone-50 rounded-lg hover:bg-gradient-to-b hover:from-stone-800 hover:to-stone-800 hover:border-stone-900 after:absolute after:inset-0 after:rounded-[inherit] after:box-shadow after:shadow-[inset_0_1px_0px_rgba(255,255,255,0.25),inset_0_-2px_0px_rgba(0,0,0,0.35)] after:pointer-events-none",
+        // Flat, no-gradient button for callers who supply their own bg-* color
+        // (e.g. bg-indigo-600). `default` always paints an opaque
+        // bg-gradient-to-b regardless of className - a background-image
+        // layers on top of background-color, so any custom bg-* color is
+        // invisible under it. Use `solid` instead whenever the button needs
+        // to actually show a specific color.
+        solid: "text-sm py-2 px-4 shadow-sm hover:shadow-md border-transparent text-white rounded-lg transition-colors",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
